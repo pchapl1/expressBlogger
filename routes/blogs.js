@@ -1,5 +1,8 @@
+const { json } = require('body-parser');
 var express = require('express');
 var router = express.Router();
+var { validateBlogData } = require('../validation/blogs.js')
+
 
 const sampleBlogs = [
     {
@@ -44,6 +47,51 @@ const sampleBlogs = [
     },
   ];
 
+/* CREATE blog listing */
+router.post('/create-one', (req, res) => {
+    console.log("POST to /new-blog")
+
+    // get blog data from request body
+    const title = req.body.title
+    const text = req.body.text
+    const author = req.body.author
+    const category = req.body.category
+
+
+    // create blog object
+    const blogData = {
+        title, 
+        text,
+        author,
+        category,
+        createdAt : new Date(),
+        lastModified : new Date()
+    }
+
+    // send blog data to validator
+    const blogDataCheck = validateBlogData(blogData)
+
+    // if blog data is not valid, return false 
+    if (blogDataCheck.isValid === false) {
+        res.json({
+            success : false,
+            message : blogDataCheck.message
+        })
+        return
+    }
+    // if blog data is valid, add blog to blog list
+    sampleBlogs.push(blogData)
+
+    // return success
+    res.json({
+        success: true,
+        newBlog : blogData,
+        message : blogDataCheck.message
+
+    })
+
+})
+
 
 /* GET all blogs listing. */
 router.get('/all', function(req, res, next) {
@@ -82,7 +130,63 @@ router.get('/single/:blogTitleToGet', function(req, res, next) {
 
   });
 
+/* PUT single blog listing */
+router.put('/single/:blogTitleToEdit', (req, res, next) => {
+    // get blog title from route parameters
+    const blogTitleToEdit = req.params.blogTitleToEdit
 
+    // check list for target
+    let foundBlog = sampleBlogs.find((blog) => {
+        return blog.title === blogTitleToEdit
+    })
+    if (!foundBlog){
+        res.json({
+            success : false,
+            message : 'Blog not found'
+        })
+        return
+    }
+
+    // create a deep copy of the original blog
+    let tempBlogData = JSON.parse(JSON.stringify(foundBlog))
+
+    if (req.body.title){
+        tempBlogData.title = req.body.title
+    }
+    if (req.body.text){
+        tempBlogData.text = req.body.text
+    }
+    if (req.body.author){
+        tempBlogData.author = req.body.author
+    }
+    if (req.body.category){
+        tempBlogData.category = req.body.category
+    }
+
+    const blogDataCheck = validateBlogData(tempBlogData)
+
+    if (blogDataCheck.isValid === false) {
+       res.json({
+            success: false,
+            message : blogDataCheck.message
+       }) 
+       return
+    }
+
+    const indexOf = sampleBlogs.findIndex((blog) => {
+        return blog.title === foundBlog.title
+    })
+
+    sampleBlogs[indexOf] = tempBlogData
+
+    res.json({
+        success: true,
+        editedBlog: tempBlogData,
+        blogs: sampleBlogs
+    })
+
+
+})
 
 /* DELETE blog list */
 router.delete('/single/:blogTitleToDelete', (req, res, next) => {
